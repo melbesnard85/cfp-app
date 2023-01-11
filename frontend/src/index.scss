@@ -1,0 +1,25 @@
+body {
+	margin: 0;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+	"Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+	sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+
+	.upload-container{
+	    display: flex;
+		flex-direction: column;
+		-webkit-box-align: center;
+		align-items: center;
+		-webkit-box-pack: center;
+		justify-content: center;
+		width: 70%;
+		height: 250px;
+		padding: 10px 15px;
+		border: 2px dashed #555555;
+		margin: auto;
+	}
+	.react-csv-input{
+		display: none;
+	}
+}
