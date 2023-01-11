@@ -1,27 +1,28 @@
 import os
 from flask import Flask, request, jsonify
-from flask_mongoengine import MongoEngine
 from flask_bcrypt import Bcrypt
 from itsdangerous import (TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature)
 
 from config import BaseConfig
+from model.db import initialize_db
 from models import *
 
 from flask_cors import CORS
 
 FORTNIGHTLY = 1296000
 app = Flask(__name__, static_folder="./frontend/build")
-CORS(app)
 
+# Database connection
 try:
-	# Database connection
 	app.config.from_object(BaseConfig)
-	db = MongoEngine(app)
+	initialize_db(app)
 except Exception as e:
 	print(e)
 
 # Salt user password
 bcrypt = Bcrypt(app)
+# CORS enabled
+CORS(app)
 
 def generate_token(user, expiration=FORTNIGHTLY):
 	s = Serializer(app.config['SECRET_KEY'], expires_in=expiration)
