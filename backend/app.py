@@ -3,15 +3,20 @@ from flask import Flask, request, jsonify
 from flask_bcrypt import Bcrypt
 from itsdangerous import (TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature)
 
+from flask_jwt_extended import JWTManager
+from flask_restful import Api
+
+from errors import errors
 from config import BaseConfig
-from model.db import initialize_db
-from models import *
+from models.db import initialize_db
+from routes.api import initialize_routes
+from models.User import User
 
 from flask_cors import CORS
 
-FORTNIGHTLY = 1296000
 app = Flask(__name__, static_folder="./frontend/build")
-
+app.config["JWT_SECRET_KEY"] = "super-secret"
+api = Api(app, errors=errors)
 # Database connection
 try:
 	app.config.from_object(BaseConfig)
@@ -21,60 +26,30 @@ except Exception as e:
 
 # Salt user password
 bcrypt = Bcrypt(app)
+# JWT instances
+jwt = JWTManager(app)
 # CORS enabled
 CORS(app)
 
-def generate_token(user, expiration=FORTNIGHTLY):
-	s = Serializer(app.config['SECRET_KEY'], expires_in=expiration)
-	token = s.dumps({ 'id': str(user.id) }).decode('utf-8')
-	return token
+# Get roles for authenticated user
+@jwt.additional_claims_loader
+def add_claims_to_access_token(user):
+    return {'roles': user.roles}
 
+# Load user identity
+@jwt.user_identity_loader
+def user_identity_lookup(user):
+    return user.email
 
-def verify_token(token):
-	s = Serializer(app.config['SECRET_KEY'])
-	try:
-		data = s.loads(token)
-	except (BadSignature, SignatureExpired):
-		return None
-	return data
+# API (Routing) Configuration Initialization
+initialize_routes(api)
 
-@app.route('/api/create_user', methods=['POST'])
-def create_user():
-	try:
-		req = request.get_json()
-		email = req['email']
-		password = req['password']
-	except:
-		return jsonify()
-	try:
-		password_hash = bcrypt.generate_password_hash(password)
-		new_user = User(email=email, password=password_hash)
-		new_user.save()
-	except db.NotUniqueError:
-		return jsonify(message='User with that email already exists'), 409
-	user = User.objects.get(email=email)
-	return jsonify(token=generate_token(user=user))
-
-@app.route("/api/get_token", methods=["POST"])
-def get_token():
-	req = request.get_json()
-	try :
-		user = User.objects.get(email=req["email"])
-		if user:
-			if bcrypt.check_password_hash(user.password, req["password"]):
-				return jsonify(token=generate_token(user=user))
-			return jsonify(message='wrong password')
-	except DoesNotExist:
-		return jsonify(error=True, message='user does not exist'), 403
-
-@app.route("/api/is_token_valid", methods=["POST"])
-def is_token_valid():
-	req = request.get_json()
-	is_valid = verify_token(req["token"])
-	if is_valid:
-		return jsonify(token_is_valid=True)
-	else:
-		return jsonify(token_is_valid=False), 403
+# Admin account initialization for first uses
+user = User.objects(email='admin@gmail.com')
+if not user:
+    login = User(email='admin@gmail.com', password='asdfASDF', roles=['admin'])
+    login.hash_password()
+    login.save()
 
 if __name__ == "__main__":
 	port = int(os.environ.get('PORT', 5000))
